@@ -17,8 +17,8 @@ type result struct {
 	Err     error
 }
 
-// checkOnce sends a single request, reads the response body, and returns the time used
-func checkOnce(client *http.Client, req *http.Request) (float64, error) {
+// CheckOnce sends a single request, reads the response body, and returns the time used
+func CheckOnce(client *http.Client, req *http.Request) (float64, error) {
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
@@ -36,7 +36,7 @@ func checkOnce(client *http.Client, req *http.Request) (float64, error) {
 	return secs, nil
 }
 
-func usage() string {
+func Usage() string {
 	return fmt.Sprintf("Usage: %s [--method METHOD] [--data DATA] URL", os.Args[0])
 }
 
@@ -55,7 +55,7 @@ func main() {
 	flag.Int64VarP(&config.Time, "time", "t", 5, "Run for `MINS` minutes in total")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		log.Fatalln(usage())
+		log.Fatalln(Usage())
 	}
 	config.URL = flag.Arg(0)
 
@@ -84,7 +84,7 @@ func main() {
 			case <-timer.C:
 				return
 			case <-ticker.C:
-				secs, err := checkOnce(client, req)
+				secs, err := CheckOnce(client, req)
 				ch <- &result{Seconds: secs, Err: err}
 			}
 		}
