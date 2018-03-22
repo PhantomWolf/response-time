@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type result struct {
+type Result struct {
 	Seconds float64
 	Err     error
 }
@@ -34,6 +34,18 @@ func CheckOnce(client *http.Client, req *http.Request) (float64, error) {
 	}
 	log.Printf("%s %s: %s(%.2f secs)\n", req.Method, req.URL.String(), resp.Status, secs)
 	return secs, nil
+}
+
+func Check(client *http.Client, req *http.Request, timer *time.Timer, ticker *time.Ticker, ch chan<- *Result) {
+	for {
+		select {
+		case <-timer.C:
+			return
+		case <-ticker.C:
+			secs, err := CheckOnce(client, req)
+			ch <- &Result{Seconds: secs, Err: err}
+		}
+	}
 }
 
 func Usage() string {
@@ -59,36 +71,25 @@ func main() {
 	}
 	config.URL = flag.Arg(0)
 
-	// Create HTTP request
 	var body io.Reader
 	if len(config.Data) != 0 {
 		body = strings.NewReader(config.Data)
 	}
-	req, err := http.NewRequest(config.Method, config.URL, body)
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		log.Fatalf("Invalid request: %s\n", err.Error())
 	}
 	req.Header.Set("Cache-Control", "no-store") // Disable cache
 
-	// Create HTTP client
 	transport := &http.Transport{}
 	client := &http.Client{Transport: transport}
 
 	// Send requests in another goroutine
-	ch := make(chan *result, 10)
+	ch := make(chan *Result, 10)
 	ticker := time.NewTicker(time.Second * time.Duration(config.Interval))
 	timer := time.NewTimer(time.Minute * time.Duration(config.Time))
-	go func() {
-		for {
-			select {
-			case <-timer.C:
-				return
-			case <-ticker.C:
-				secs, err := CheckOnce(client, req)
-				ch <- &result{Seconds: secs, Err: err}
-			}
-		}
-	}()
+
+	go Check(client, req, timer, ticker, ch)
 
 	// Statistics
 	totalReq := 0
@@ -106,4 +107,20 @@ func main() {
 		break
 	}
 	fmt.Printf("Average response time: %f\n", averageTime)
+}
+
+func Statistics(timer *time.Timer, ch <-chan *Result) float64 {
+	count := 0
+	var avg float64 = 0
+	var total float64 = 0
+	for {
+		select {
+		case <-timer.C:
+			avg = total / float64(count)
+			return avg
+		case res := <-ch:
+			total += res.Seconds
+			count += 1
+		}
+	}
 }
