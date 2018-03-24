@@ -1,24 +1,24 @@
 pipeline {
-    agent {
-        docker {
-            image '1.10-alpine3.7'
-        }
+  agent {
+    docker {
+      image 'phantomwolf47/golangwithgit:1.0'
     }
-    environment {
-        CI = 'true'
+    
+  }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'go get -d ./...'
+        sh 'go build'
+      }
     }
-    stages {
-        stage('Build') {
-            steps {
-                sh 'go build'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh 'go test'
-            }
-        }
+    stage('Test') {
+      steps {
+        sh 'go test -v'
+      }
     }
+  }
+  environment {
+    CI = 'true'
+  }
 }
-
-
