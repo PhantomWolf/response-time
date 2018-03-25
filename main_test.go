@@ -48,17 +48,14 @@ func TestCheck(t *testing.T) {
 	req, _ := http.NewRequest("GET", "http://127.0.0.1:8080", nil)
 	timer := time.NewTimer(time.Second * 5)
 	ticker := time.NewTicker(time.Second)
-	ch := make(chan *Result, 10)
+	ch := make(chan float64, 10)
 	go Check(client, req, timer, ticker, ch)
 	for {
 		select {
 		case <-timer.C:
-		case res := <-ch:
-			if res.Err != nil {
-				t.Fatalf("GET http://127.0.0.1:8080 failed: %s\n", res.Err.Error())
-			}
-			if math.Abs(res.Seconds-responseTime) > 0.2 {
-				t.Fatalf("Response time incorrect. Expected: %.2f, Actual: %.2f\n", responseTime, res.Seconds)
+		case secs := <-ch:
+			if math.Abs(secs-responseTime) > 0.2 {
+				t.Fatalf("Response time incorrect. Expected: %.2f, Actual: %.2f\n", responseTime, secs)
 			}
 			continue
 		}
@@ -69,12 +66,11 @@ func TestCheck(t *testing.T) {
 
 func TestStatistics(t *testing.T) {
 	timer := time.NewTimer(time.Second * 5)
-	ch := make(chan *Result, 10)
+	ch := make(chan float64, 10)
 
 	go func() {
 		for i := 1; i <= 10; i++ {
-			result := &Result{Seconds: float64(i), Err: nil}
-			ch <- result
+			ch <- float64(i)
 		}
 	}()
 
